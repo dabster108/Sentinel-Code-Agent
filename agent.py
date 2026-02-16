@@ -1,7 +1,7 @@
 # sentinel_agent/agent.py
 from google.adk.agents.llm_agent import Agent
 
-# Root agent
+# Root agent - code 
 root_agent = Agent(
     model="gemini-2.5-flash-lite",
     name="sentinel_agent",
