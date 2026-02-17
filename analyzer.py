@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class CodeAnalyzer:
     
     def __init__(self):
-        self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        self.model = genai.GenerativeModel('gemini-2.5-flash-lite')
         self.system_instruction = """You are a Security Sentinel Code Reviewer — an expert security analyst and code reviewer.
 When provided with source code, analyze it thoroughly and provide:
 

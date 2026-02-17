@@ -164,6 +164,6 @@ class GitHubPusher:
             logger.error(f"Error during GitHub push: {str(e)}")
             try:
                 self._run_git_command(['git', 'checkout', original_branch])
-            except:
+            except Exception:
                 pass
             return False

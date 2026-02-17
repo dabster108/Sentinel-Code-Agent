@@ -3,7 +3,7 @@ from google.adk.agents.llm_agent import Agent
 
 # Root agent - code 
 root_agent = Agent(
-    model="gemini-2.5-flash-lite",
+    model="gemini-2.5-flash",
     name="sentinel_agent",
     description=(
         "Security Sentinel Agent: Analyzes Python code for security vulnerabilities, "
