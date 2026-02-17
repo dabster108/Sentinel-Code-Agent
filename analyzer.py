@@ -1,0 +1,157 @@
+from pathlib import Path
+from typing import Dict, Any
+import logging
+import google.generativeai as genai
+import os
+
+genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
+
+logger = logging.getLogger(__name__)
+
+
+class CodeAnalyzer:
+    
+    def __init__(self):
+        self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        self.system_instruction = """You are a Security Sentinel Code Reviewer — an expert security analyst and code reviewer.
+When provided with source code, analyze it thoroughly and provide:
+
+1. **Security Vulnerabilities**: Identify critical security issues such as:
+   - SQL injection vulnerabilities
+   - Command injection risks (eval, exec, os.system, subprocess with shell=True)
+   - Unsafe deserialization
+   - Path traversal vulnerabilities
+   - Hardcoded credentials or API keys
+   - Weak cryptography usage
+   - XML/XXE vulnerabilities
+   - CSRF/XSS vulnerabilities
+
+2. **Coding Issues**: Detect problematic patterns:
+   - Bare except clauses
+   - Unused imports or variables
+   - Dead code
+   - Improper error handling
+   - Resource leaks (unclosed files, connections)
+   - Race conditions
+
+3. **Bad Practices**: Flag poor coding practices:
+   - Missing input validation
+   - Mutable default arguments
+   - Global state usage
+   - Poor naming conventions
+   - Missing type hints (for Python)
+   - Overly complex functions
+
+4. **Recommendations**: Provide specific, actionable fixes:
+   - Safer code alternatives
+   - Best practices to follow
+   - Library recommendations
+
+Format your response as a structured analysis with severity levels:
+- CRITICAL: Security vulnerabilities that must be fixed immediately
+- HIGH: Significant bugs or security concerns
+- MEDIUM: Code quality issues that should be addressed
+- LOW: Minor improvements and suggestions
+
+For each issue, specify:
+- Line number(s) if identifiable
+- Clear description of the problem
+- Why it's dangerous or problematic
+- How to fix it
+
+If the code is secure and well-written, acknowledge that and provide positive feedback.
+Be thorough, educational, and constructive."""
+    
+    def analyze_file(self, file_path: Path, content: str, language: str) -> Dict[str, Any]:
+        """
+        Analyze a code file for security issues and bad practices.
+        
+        Args:
+            file_path: Path to the file being analyzed
+            content: Content of the file
+            language: Programming language of the file
+            
+        Returns:
+            Dictionary containing analysis results
+        """
+        logger.info(f"Analyzing file: {file_path.name}")
+        
+        prompt = f"""{self.system_instruction}
+
+Analyze the following {language} code file for security vulnerabilities, bugs, and bad coding practices.
+
+File: {file_path.name}
+Language: {language}
+
+Code:
+```{language.lower()}
+{content}
+```
+
+Provide a comprehensive security and code quality analysis.
+"""
+        
+        try:
+            response = self.model.generate_content(prompt)
+            
+            analysis_result = {
+                'file_path': str(file_path),
+                'language': language,
+                'status': 'success',
+                'analysis': response.text,
+                'file_name': file_path.name
+            }
+            
+            logger.info(f"Analysis completed for: {file_path.name}")
+            return analysis_result
+            
+        except Exception as e:
+            logger.error(f"Error analyzing {file_path.name}: {str(e)}")
+            return {
+                'file_path': str(file_path),
+                'language': language,
+                'status': 'error',
+                'analysis': f"Error during analysis: {str(e)}",
+                'file_name': file_path.name
+            }
+    
+    def create_summary(self, all_results: list) -> str:
+        """
+        Create a summary of all analysis results.
+        
+        Args:
+            all_results: List of all analysis results
+            
+        Returns:
+            Summary text
+        """
+        total_files = len(all_results)
+        successful = sum(1 for r in all_results if r['status'] == 'success')
+        failed = total_files - successful
+        
+        summary = f"""# Sentinel Code Analysis Summary
+
+## Overview
+- **Total Files Analyzed**: {total_files}
+- **Successful**: {successful}
+- **Failed**: {failed}
+
+## Files Analyzed
+"""
+        
+        for result in all_results:
+            status_emoji = "✅" if result['status'] == 'success' else "❌"
+            summary += f"- {status_emoji} {result['file_name']} ({result['language']})\n"
+        
+        summary += """
+## Next Steps
+1. Review individual file reports in the `issues/` directory
+2. Address CRITICAL and HIGH severity issues immediately
+3. Plan remediation for MEDIUM and LOW severity issues
+4. Re-run analysis after fixes to verify improvements
+
+---
+*Generated by Sentinel Code Agent*
+"""
+        
+        return summary
